@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام إدارة المواد الغذائية المستوردة</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="bg-gray-50" x-data="dashboard()" x-init="init()">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4">
+                <h1 class="text-2xl font-bold text-gray-900">
+                    <i class="fas fa-boxes text-blue-600 ml-3"></i>
+                    نظام إدارة المواد الغذائية المستوردة
+                </h1>
+                <div class="flex space-x-4 space-x-reverse">
+                    <button @click="activeTab = 'dashboard'" 
+                            :class="activeTab === 'dashboard' ? 'bg-blue-100 text-blue-700' : 'text-gray-600'"
+                            class="px-4 py-2 rounded-md font-medium">
+                        <i class="fas fa-chart-bar ml-2"></i>لوحة التحكم
+                    </button>
+                    <button @click="activeTab = 'products'" 
+                            :class="activeTab === 'products' ? 'bg-blue-100 text-blue-700' : 'text-gray-600'"
+                            class="px-4 py-2 rounded-md font-medium">
+                        <i class="fas fa-box ml-2"></i>المنتجات
+                    </button>
+                    <button @click="activeTab = 'alerts'" 
+                            :class="activeTab === 'alerts' ? 'bg-blue-100 text-blue-700' : 'text-gray-600'"
+                            class="px-4 py-2 rounded-md font-medium relative">
+                        <i class="fas fa-bell ml-2"></i>التنبيهات
+                        <span x-show="stats.active_alerts > 0" 
+                              class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center"
+                              x-text="stats.active_alerts"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        
+        <!-- Dashboard Tab -->
+        <div x-show="activeTab === 'dashboard'" x-cloak>
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-box-open text-2xl text-blue-600"></i>
+                        </div>
+                        <div class="mr-4">
+                            <p class="text-sm font-medium text-gray-600">إجمالي المنتجات</p>
+                            <p class="text-2xl font-bold text-gray-900" x-text="stats.total_products">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-warehouse text-2xl text-green-600"></i>
+                        </div>
+                        <div class="mr-4">
+                            <p class="text-sm font-medium text-gray-600">إجمالي المخزون</p>
+                            <p class="text-2xl font-bold text-gray-900" x-text="stats.total_stock">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-exclamation-triangle text-2xl text-yellow-600"></i>
+                        </div>
+                        <div class="mr-4">
+                            <p class="text-sm font-medium text-gray-600">مخزون منخفض</p>
+                            <p class="text-2xl font-bold text-gray-900" x-text="stats.low_stock_count">0</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-clock text-2xl text-red-600"></i>
+                        </div>
+                        <div class="mr-4">
+                            <p class="text-sm font-medium text-gray-600">منتجات تنتهي قريباً</p>
+                            <p class="text-2xl font-bold text-gray-900" x-text="stats.expiring_soon">0</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Add Product Form -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h2 class="text-xl font-semibold mb-4">
+                    <i class="fas fa-plus text-blue-600 ml-2"></i>إضافة منتج جديد
+                </h2>
+                <form @submit.prevent="addProduct()" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">الاسم الأصلي</label>
+                        <input type="text" x-model="newProduct.original_name" 
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="حمص حب" required>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">الاسم المستورد</label>
+                        <input type="text" x-model="newProduct.imported_name" 
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="Chickpeas" required>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">الاسم المحلي</label>
+                        <input type="text" x-model="newProduct.local_name" 
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="Kikärtor">
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">الباركود</label>
+                        <input type="text" x-model="newProduct.barcode" 
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="5281234567890" required>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">العلامة التجارية</label>
+                        <input type="text" x-model="newProduct.brand" 
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="Shatoura" required>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">الفئة</label>
+                        <select x-model="newProduct.category" 
+                                class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                            <option value="">اختر الفئة</option>
+                            <option value="Legumes">بقوليات</option>
+                            <option value="Grains">حبوب</option>
+                            <option value="Oils">زيوت</option>
+                            <option value="Spices">بهارات</option>
+                            <option value="Dairy">ألبان</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">الوزن</label>
+                        <input type="text" x-model="newProduct.weight" 
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="900g" required>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">بلد المنشأ</label>
+                        <select x-model="newProduct.origin_country" 
+                                class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+                            <option value="">اختر البلد</option>
+                            <option value="Lebanon">لبنان</option>
+                            <option value="Turkey">تركيا</option>
+                            <option value="India">الهند</option>
+                            <option value="Pakistan">باكستان</option>
+                            <option value="Tunisia">تونس</option>
+                            <option value="Morocco">المغرب</option>
+                            <option value="Egypt">مصر</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">المورد</label>
+                        <input type="text" x-model="newProduct.supplier" 
+                               class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               placeholder="XYZ Import AB" required>
+                    </div>
+                    
+                    <div class="md:col-span-2 lg:col-span-3 grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">سعر الشراء</label>
+                            <input type="number" step="0.01" x-model="newProduct.purchase_price" 
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder="1.50" required>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">سعر الجملة</label>
+                            <input type="number" step="0.01" x-model="newProduct.wholesale_price" 
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder="2.20" required>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">سعر التجزئة</label>
+                            <input type="number" step="0.01" x-model="newProduct.retail_price" 
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder="3.00" required>
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">كمية المخزون</label>
+                            <input type="number" x-model="newProduct.stock_quantity" 
+                                   class="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                   placeholder="1000" required>
+                        </div>
+                    </div>
+                    
+                    <div class="md:col-span-2 lg:col-span-3">
+                        <button type="submit" 
+                                class="bg-blue-600 text-white px-6 py-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium">
+                            <i class="fas fa-plus ml-2"></i>إضافة المنتج
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Products Tab -->
+        <div x-show="activeTab === 'products'" x-cloak>
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h2 class="text-xl font-semibold">
+                        <i class="fas fa-box text-blue-600 ml-2"></i>قائمة المنتجات
+                    </h2>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">الاسم</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">العلامة التجارية</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">بلد المنشأ</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">المخزون</th>
+                                <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">الكود الداخلي</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <template x-for="product in products" :key="product.id">
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div>
+                                            <div class="text-sm font-medium text-gray-900" x-text="product.imported_name"></div>
+                                            <div class="text-sm text-gray-500" x-text="product.original_name"></div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="product.brand"></td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" x-text="product.origin_country"></td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span :class="product.stock_quantity < product.min_threshold ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'"
+                                              class="inline-flex px-2 py-1 text-xs font-semibold rounded-full"
+                                              x-text="product.stock_quantity"></span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-900" x-text="product.internal_code"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Alerts Tab -->
+        <div x-show="activeTab === 'alerts'" x-cloak>
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h2 class="text-xl font-semibold">
+                        <i class="fas fa-bell text-red-600 ml-2"></i>التنبيهات
+                    </h2>
+                </div>
+                <div class="p-6">
+                    <template x-for="alert in alerts" :key="alert.product_name + alert.alert_type">
+                        <div class="mb-4 p-4 rounded-lg border-r-4" 
+                             :class="{
+                                 'bg-red-50 border-red-500': alert.severity === 'High' || alert.severity === 'Critical',
+                                 'bg-yellow-50 border-yellow-500': alert.severity === 'Medium',
+                                 'bg-blue-50 border-blue-500': alert.severity === 'Low'
+                             }">
+                            <div class="flex items-center">
+                                <i class="fas fa-exclamation-triangle text-lg ml-3"
+                                   :class="{
+                                       'text-red-500': alert.severity === 'High' || alert.severity === 'Critical',
+                                       'text-yellow-500': alert.severity === 'Medium',
+                                       'text-blue-500': alert.severity === 'Low'
+                                   }"></i>
+                                <div>
+                                    <h4 class="font-semibold" x-text="alert.alert_type"></h4>
+                                    <p class="text-sm text-gray-600" x-text="alert.message"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                    <div x-show="alerts.length === 0" class="text-center py-8 text-gray-500">
+                        <i class="fas fa-check-circle text-4xl text-green-500 mb-4"></i>
+                        <p>لا توجد تنبيهات في الوقت الحالي</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Success/Error Messages -->
+    <div x-show="message" x-transition 
+         class="fixed bottom-4 left-4 bg-green-500 text-white px-6 py-3 rounded-md shadow-lg">
+        <span x-text="message"></span>
+    </div>
+
+    <script>
+        function dashboard() {
+            return {
+                activeTab: 'dashboard',
+                products: [],
+                alerts: [],
+                stats: {
+                    total_products: 0,
+                    total_stock: 0,
+                    low_stock_count: 0,
+                    active_alerts: 0,
+                    expiring_soon: 0
+                },
+                newProduct: {
+                    original_name: '',
+                    imported_name: '',
+                    local_name: '',
+                    barcode: '',
+                    brand: '',
+                    category: '',
+                    weight: '',
+                    origin_country: '',
+                    supplier: '',
+                    purchase_price: 0,
+                    wholesale_price: 0,
+                    retail_price: 0,
+                    batch_id: 1,
+                    stock_quantity: 0,
+                    monthly_sales: 0,
+                    min_threshold: 10,
+                    production_date: '',
+                    expiry_date: ''
+                },
+                message: '',
+
+                async init() {
+                    await this.loadStats();
+                    await this.loadProducts();
+                    await this.loadAlerts();
+                },
+
+                async loadStats() {
+                    try {
+                        const response = await fetch('/api/stats');
+                        this.stats = await response.json();
+                    } catch (error) {
+                        console.error('Error loading stats:', error);
+                    }
+                },
+
+                async loadProducts() {
+                    try {
+                        const response = await fetch('/api/products');
+                        this.products = await response.json();
+                    } catch (error) {
+                        console.error('Error loading products:', error);
+                    }
+                },
+
+                async loadAlerts() {
+                    try {
+                        const response = await fetch('/api/alerts');
+                        this.alerts = await response.json();
+                    } catch (error) {
+                        console.error('Error loading alerts:', error);
+                    }
+                },
+
+                async addProduct() {
+                    try {
+                        const response = await fetch('/api/products', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify(this.newProduct)
+                        });
+
+                        if (response.ok) {
+                            this.message = 'تم إضافة المنتج بنجاح!';
+                            this.resetForm();
+                            await this.loadStats();
+                            await this.loadProducts();
+                            setTimeout(() => this.message = '', 3000);
+                        } else {
+                            const error = await response.json();
+                            alert('خطأ: ' + error.error);
+                        }
+                    } catch (error) {
+                        console.error('Error adding product:', error);
+                        alert('حدث خطأ أثناء إضافة المنتج');
+                    }
+                },
+
+                resetForm() {
+                    this.newProduct = {
+                        original_name: '',
+                        imported_name: '',
+                        local_name: '',
+                        barcode: '',
+                        brand: '',
+                        category: '',
+                        weight: '',
+                        origin_country: '',
+                        supplier: '',
+                        purchase_price: 0,
+                        wholesale_price: 0,
+                        retail_price: 0,
+                        batch_id: 1,
+                        stock_quantity: 0,
+                        monthly_sales: 0,
+                        min_threshold: 10,
+                        production_date: '',
+                        expiry_date: ''
+                    };
+                }
+            }
+        }
+    </script>
+</body>
+</html>
